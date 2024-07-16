@@ -16,6 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Forus',
       theme: ThemeData(
         primarySwatch: Colors.amber,
@@ -81,8 +82,8 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.amber[900],
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+        unselectedItemColor: Colors.black,
+        onTap: _onItemTapped, // Change the background color to black
       ),
     );
   }

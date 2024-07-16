@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 
@@ -13,60 +12,86 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int selectedChipIndex = 0;
+  final List<String> chipLabels = ['Camps', 'Safe Places', 'Medical', 'Food Supplies'];
+  final List<IconData> chipIcons = [Icons.campaign, Icons.shield, Icons.local_hospital, Icons.fastfood];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Container(
-            padding: EdgeInsets.only(left: 16, right: 16, top: 30),
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(35),
-                bottomRight: Radius.circular(35),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 16),
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: AssetImage('assets/profile_image.jpg'), // Replace with your profile image asset
-                ),
-              ],
+          Positioned.fill(
+            child: MapSample(
+              selectedChipIndex: selectedChipIndex,
             ),
           ),
-          Row(
+          Column(
             children: [
-              Text("Map View"),
-              Text("View Map")
+              Container(
+                padding: EdgeInsets.only(left: 16, right: 16, top: 30),
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(35),
+                    bottomRight: Radius.circular(35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search...',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: Icon(Icons.search, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: AssetImage('assets/profile_image.jpg'),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List<Widget>.generate(
+                    chipLabels.length,
+                    (int index) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4.0),
+                        child: ChoiceChip(
+                          avatar: Icon(chipIcons[index], color: selectedChipIndex == index ? Colors.white : Colors.black),
+                          label: Text(chipLabels[index]),
+                          selected: selectedChipIndex == index,
+                          onSelected: (bool selected) {
+                            setState(() {
+                              selectedChipIndex = selected ? index : 0;
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  ).toList(),
+                ),
+              ),
             ],
-          )
-          ,
-          Container(
-            height: 220,
-            child: MapSample(),
           ),
         ],
       ),
@@ -75,7 +100,9 @@ class _HomePageState extends State<HomePage> {
 }
 
 class MapSample extends StatefulWidget {
-  const MapSample({Key? key}) : super(key: key);
+  final int selectedChipIndex;
+
+  const MapSample({Key? key, required this.selectedChipIndex}) : super(key: key);
 
   @override
   MapSampleState createState() => MapSampleState();
@@ -85,6 +112,8 @@ class MapSampleState extends State<MapSample> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   LocationData? currentLocation;
   BitmapDescriptor? pinLocationIcon;
+  List<Marker> _markers = [];
+  List<Circle> _circles = [];
 
   static const CameraPosition _kGooglePlex = CameraPosition(
     target: LatLng(37.42796133580664, -122.085749655962),
@@ -96,6 +125,7 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getCurrentLocation();
     _loadMarkerIcon();
+    _generateRandomDisasterMarkers();
   }
 
   Future<void> _loadMarkerIcon() async {
@@ -114,11 +144,10 @@ class MapSampleState extends State<MapSample> {
   Future<Uint8List> createCustomMarkerIcon(Uint8List imageBytes) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final double size = 100.0; // Customize the size as needed
+    final double size = 100.0;
 
     final Paint paint = Paint()..isAntiAlias = true;
 
-    // Draw the circular image
     final Radius radius = Radius.circular(size / 2);
     final Rect rect = Rect.fromLTWH(0.0, 0.0, size, size);
     final RRect rrect = RRect.fromRectAndRadius(rect, radius);
@@ -128,14 +157,12 @@ class MapSampleState extends State<MapSample> {
     final ui.Image image = frameInfo.image;
     canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), rect, paint);
 
-    // Draw the border
     paint
       ..color = Colors.orange.withOpacity(0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5;
     canvas.drawRRect(rrect, paint);
 
-    // Draw the concentric circles
     for (double radius = size / 2 + 5; radius <= size / 2 + 15; radius += 5) {
       paint
         ..color = Colors.orange.withOpacity(0.5)
@@ -144,7 +171,6 @@ class MapSampleState extends State<MapSample> {
       canvas.drawCircle(Offset(size / 2, size / 2), radius, paint);
     }
 
-    // Draw the pin leg (inverted triangle)
     final Paint pinPaint = Paint()..color = Colors.orange.withOpacity(0.8);
     final Path pinPath = Path()
       ..moveTo(size / 2, size)
@@ -168,7 +194,6 @@ class MapSampleState extends State<MapSample> {
     if (!_serviceEnabled) {
       _serviceEnabled = await location.requestService();
       if (!_serviceEnabled) {
-        // Handle case when location services are still not enabled
         return;
       }
     }
@@ -177,7 +202,6 @@ class MapSampleState extends State<MapSample> {
     if (_permissionGranted == PermissionStatus.denied) {
       _permissionGranted = await location.requestPermission();
       if (_permissionGranted != PermissionStatus.granted) {
-        // Handle case when location permissions are denied
         return;
       }
     }
@@ -190,42 +214,122 @@ class MapSampleState extends State<MapSample> {
         });
       }
     } catch (e) {
-      // Handle any potential exceptions while fetching location
       print('Error fetching location: $e');
     }
   }
 
+  void _generateRandomDisasterMarkers() {
+    List<LatLng> disasterLocations = [
+      LatLng(37.428, -122.085),
+      LatLng(37.430, -122.083),
+      LatLng(37.432, -122.087),
+    ];
+
+    List<Color> disasterColors = [Colors.red, Colors.orange, Colors.green];
+
+    for (int i = 0; i < disasterLocations.length; i++) {
+      LatLng location = disasterLocations[i];
+      Color color = disasterColors[i];
+
+      _markers.add(Marker(
+        markerId: MarkerId('disaster_marker_$i'),
+        position: location,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        onTap: () {
+          _showDisasterInfo(location, color, 'Disaster $i');
+        },
+      ));
+
+      _circles.add(Circle(
+        circleId: CircleId('disaster_circle_$i'),
+        center: location,
+        radius: 500,
+        fillColor: color.withOpacity(0.3),
+        strokeColor: color,
+        strokeWidth: 2,
+      ));
+    }
+  }
+
+  void _showDisasterInfo(LatLng position, Color color, String title) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black.withOpacity(0.8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          content: Container(
+            width: 150,
+            height: 180,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Description of the disaster...',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                Spacer(),
+                TextButton(
+                  onPressed: () {
+                    // Handle view more action
+                  },
+                  child: Text(
+                    'View More',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: GoogleMap(
-        zoomControlsEnabled: false,
-        mapType: MapType.normal,
-        initialCameraPosition: _kGooglePlex,
-        onMapCreated: (GoogleMapController controller) {
-          _controller.complete(controller);
-        },
-        markers: Set.from([
-          if (currentLocation != null)
-            Marker(
-              markerId: MarkerId('marker_current_location'),
-              position: LatLng(
-                currentLocation!.latitude ?? 0.0,
-                currentLocation!.longitude ?? 0.0,
-              ),
-              icon: pinLocationIcon ?? BitmapDescriptor.defaultMarker,
-              infoWindow: InfoWindow(
-                title: 'Current Location',
-                snippet: 'Your location',
-              ),
-            ),
-        ]),
-      ),
+    return Stack(
+      children: [
+        GoogleMap(
+          zoomControlsEnabled: false,
+          mapType: MapType.normal,
+          initialCameraPosition: _kGooglePlex,
+          onMapCreated: (GoogleMapController controller) {
+            _controller.complete(controller);
+          },
+          markers: Set.from(_markers),
+          circles: Set.from(_circles),
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: () {
+              if (currentLocation != null) {
+                moveCameraToLocation(currentLocation!);
+              }
+            },
+            child: Icon(Icons.my_location),
+          ),
+        ),
+      ],
     );
   }
 

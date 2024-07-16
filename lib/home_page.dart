@@ -89,7 +89,7 @@ class _HomePageState extends State<HomePage> {
                             setState(() {
                               selectedChipIndex = selected ? index : 0;
                             });
-                            MapSampleState().findNearbyLocations(selectedChipIndex);
+                            _zoomToLocation(index);
                           },
                         ),
                       ),
@@ -102,37 +102,24 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
 
-class RoundedIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
+  void _zoomToLocation(int index) {
+    final locations = [
+      LatLng(13.0827, 80.2707), // Camps
+      LatLng(13.0674, 80.2370), // Safe Places
+      LatLng(13.0965, 80.2731), // Medical
+      LatLng(13.0878, 80.2745), // Food Supplies
+    ];
 
-  const RoundedIconButton({
-    Key? key,
-    required this.icon,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(icon, color: Colors.white),
-        ),
-      ),
+    final GoogleMapController controller = _mapSampleKey.currentState!.controller;
+    final newCameraPosition = CameraPosition(
+      target: locations[index],
+      zoom: 18.0,
     );
+    controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
   }
+
+  final GlobalKey<MapSampleState> _mapSampleKey = GlobalKey();
 }
 
 class MapSample extends StatefulWidget {
@@ -146,13 +133,15 @@ class MapSample extends StatefulWidget {
 
 class MapSampleState extends State<MapSample> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+  GoogleMapController get controller => _controller.future as GoogleMapController;
+
   LocationData? currentLocation;
   BitmapDescriptor? userMarkerIcon;
   List<Marker> _markers = [];
   List<Circle> _circles = [];
   static const CameraPosition _kGooglePlex = CameraPosition(
     target: LatLng(13.0827, 80.2707),
-    zoom: 30.0,
+    zoom: 15.0,
   );
 
   @override
@@ -165,52 +154,10 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _loadMarkerIcons() async {
-    final Uint8List markerIcon = await getBytesFromAsset('assets/profile_image.jpg', 100);
-    final Uint8List customMarker = await createCustomMarkerIcon(markerIcon);
-    userMarkerIcon = BitmapDescriptor.fromBytes(customMarker);
-  }
-
-  Future<Uint8List> getBytesFromAsset(String path, int width) async {
-    ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
-    ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
-  }
-
-  Future<Uint8List> createCustomMarkerIcon(Uint8List imageBytes) async {
-    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
-    final double size = 100.0;
-
-    final Paint paint = Paint()..isAntiAlias = true;
-
-    final Radius radius = Radius.circular(size / 2);
-    final Rect rect = Rect.fromLTWH(0.0, 0.0, size, size);
-    final RRect rrect = RRect.fromRectAndRadius(rect, radius);
-    canvas.clipRRect(rrect);
-    final ui.Codec codec = await ui.instantiateImageCodec(imageBytes);
-    final ui.FrameInfo frameInfo = await codec.getNextFrame();
-    final ui.Image image = frameInfo.image;
-    canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), rect, paint);
-
-    paint
-      ..color = Colors.blue.withOpacity(0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
-    canvas.drawRRect(rrect, paint);
-
-    final Paint pinPaint = Paint()..color = Colors.blue.withOpacity(0.8);
-    final Path pinPath = Path()
-      ..moveTo(size / 2, size)
-      ..lineTo((size / 2) - 10, size + 20)
-      ..lineTo((size / 2) + 10, size + 20)
-      ..close();
-    canvas.drawPath(pinPath, pinPaint);
-
-    final ui.Picture picture = pictureRecorder.endRecording();
-    final ui.Image markerImage = await picture.toImage(size.toInt(), (size + 20).toInt());
-    final ByteData? byteData = await markerImage.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
+    userMarkerIcon = await BitmapDescriptor.fromAssetImage(
+      ImageConfiguration(size: Size(48, 48)),
+      'assets/profile_image.jpg',
+    );
   }
 
   Future<void> _getCurrentLocation() async {
@@ -246,84 +193,127 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-void _generateRandomNearbyMarkers() {
-  List<LatLng> disasterLocations = [
-    LatLng(15.0827, 83.2707),  // Example disaster location 1
-    LatLng(13.0674, 80.2370),  // Example disaster location 2
-    LatLng(13.0965, 80.2731),  // Example disaster location 3
-  ];
+  void _generateRandomNearbyMarkers() {
+    List<LatLng> disasterLocations = [
+      LatLng(15.0827, 83.2707),  // Example disaster location 1
+      LatLng(13.0674, 80.2370),  // Example disaster location 2
+      LatLng(13.0965, 80.2731),  // Example disaster location 3
+    ];
 
-  List<IconData> campIcons = [
-    Icons.campaign,         // Camps
-    Icons.shield,           // Safe Places
-    Icons.local_hospital,   // Medical
-    Icons.fastfood,         // Food Supplies
-  ];
+    List<IconData> campIcons = [
+      Icons.campaign,         // Camps
+      Icons.shield,           // Safe Places
+      Icons.local_hospital,   // Medical
+      Icons.fastfood,         // Food Supplies
+    ];
 
-  for (int i = 0; i < disasterLocations.length; i++) {
-    LatLng disasterLocation = disasterLocations[i];
+    for (int i = 0; i < disasterLocations.length; i++) {
+      LatLng disasterLocation = disasterLocations[i];
 
-    // Generate random offsets for camp locations
-    double latOffset = Random().nextDouble() * 0.02 - 0.01; // Example latitude offset (-0.01 to +0.01)
-    double lngOffset = Random().nextDouble() * 0.02 - 0.01; // Example longitude offset (-0.01 to +0.01)
+      // Generate random offsets for camp locations
+      double latOffset = Random().nextDouble() * 0.02 - 0.01; // Example latitude offset (-0.01 to +0.01)
+      double lngOffset = Random().nextDouble() * 0.02 - 0.01; // Example longitude offset (-0.01 to +0.01)
 
-    // Generate camp locations near the disaster location
-    for (int j = 0; j < campIcons.length; j++) {
-      LatLng campLocation = LatLng(
-        disasterLocation.latitude + latOffset,
-        disasterLocation.longitude + lngOffset,
-      );
+      // Generate camp locations near the disaster location
+      for (int j = 0; j < campIcons.length; j++) {
+        LatLng campLocation = LatLng(
+          disasterLocation.latitude + latOffset,
+          disasterLocation.longitude + lngOffset,
+        );
 
-      IconData icon = campIcons[j];
+        IconData icon = campIcons[j];
+        _addCustomMarker(campLocation, icon, 'Location ${i}_${j}');
+      }
+    }
+  }
+
+  void _generateRandomDisasterMarkers() {
+    List<LatLng> disasterLocations = [
+      LatLng(15.0827, 83.2707),  // Example disaster location 1
+      LatLng(13.0674, 80.2370),  // Example disaster location 2
+      LatLng(13.0965, 80.2731),  // Example disaster location 3
+    ];
+
+    List<Color> disasterColors = [
+      Colors.red,     // High damage
+      Colors.orange,  // Medium damage
+      Colors.green,   // Low damage
+    ];
+
+    for (int i = 0; i < disasterLocations.length; i++) {
+      LatLng location = disasterLocations[i];
+      Color color = disasterColors[i];
 
       _markers.add(Marker(
-        markerId: MarkerId('camp_marker_${i}_${j}'),
-        position: campLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        markerId: MarkerId('disaster_marker_$i'),
+        position: location,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         onTap: () {
-          _showCampInfo(campLocation, icon, 'Location ${i}_${j}');
+          _showDisasterInfo(location, color, 'Disaster $i');
         },
+      ));
+
+      _circles.add(Circle(
+        circleId: CircleId('disaster_circle_$i'),
+        center: location,
+        radius: 500,
+        fillColor: color.withOpacity(0.3),
+        strokeColor: color,
+        strokeWidth: 2,
       ));
     }
   }
-}
 
-void _generateRandomDisasterMarkers() {
-  List<LatLng> disasterLocations = [
-    LatLng(15.0827, 83.2707),  // Example disaster location 1
-    LatLng(13.0674, 80.2370),  // Example disaster location 2
-    LatLng(13.0965, 80.2731),  // Example disaster location 3
-  ];
-
-  List<Color> disasterColors = [
-    Colors.red,     // High damage
-    Colors.orange,  // Medium damage
-    Colors.green,   // Low damage
-  ];
-
-  for (int i = 0; i < disasterLocations.length; i++) {
-    LatLng location = disasterLocations[i];
-    Color color = disasterColors[i];
-
-    _markers.add(Marker(
-      markerId: MarkerId('disaster_marker_$i'),
-      position: location,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      onTap: () {
-        _showDisasterInfo(location, color, 'Disaster $i');
-      },
-    ));
-
-    _circles.add(Circle(
-      circleId: CircleId('disaster_circle_$i'),
-      center: location,
-      radius: 500,
-      fillColor: color.withOpacity(0.3),
-      strokeColor: color,
-      strokeWidth: 2,
-    ));
+  Future<void> _addCustomMarker(LatLng position, IconData icon, String title) async {
+    final Uint8List markerIcon = await createCustomMarkerIcon(icon, title);
+    setState(() {
+      _markers.add(Marker(
+        markerId: MarkerId(title),
+        position: position,
+        icon: BitmapDescriptor.fromBytes(markerIcon),
+        onTap: () {
+          _showCampInfo(position, icon, title);
+        },
+      ));
+    });
   }
-}
+
+  Future<Uint8List> createCustomMarkerIcon(IconData icon, String title) async {
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    final double size = 100.0;
+
+    final Paint paint = Paint()..isAntiAlias = true;
+    final Radius radius = Radius.circular(size / 2);
+    final Rect rect = Rect.fromLTWH(0.0, 0.0, size, size);
+    final RRect rrect = RRect.fromRectAndRadius(rect, radius);
+    canvas.clipRRect(rrect);
+
+    // Draw background
+    paint.color = Colors.lightBlue.withOpacity(0.8);
+    canvas.drawRRect(rrect, paint);
+
+    // Draw icon
+    final iconPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontSize: size * 0.6,
+          fontFamily: icon.fontFamily,
+          color: Colors.white,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+    iconPainter.layout();
+    iconPainter.paint(canvas, Offset(size * 0.2, size * 0.15));
+
+    final ui.Picture picture = pictureRecorder.endRecording();
+    final ui.Image markerImage = await picture.toImage(size.toInt(), size.toInt());
+    final ByteData? byteData = await markerImage.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
 
   void _showCampInfo(LatLng position, IconData icon, String title) {
     showDialog(
@@ -431,7 +421,6 @@ void _generateRandomDisasterMarkers() {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -453,7 +442,7 @@ void _generateRandomDisasterMarkers() {
             bottom: 50,
             right: 16,
             child: GestureDetector(
-              onTap:moveToUserLocation,
+              onTap: moveToUserLocation,
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -499,30 +488,36 @@ void _generateRandomDisasterMarkers() {
   }
 
   void findNearbyLocations(int selectedChipIndex) async {
+    List<LatLng> disasterLocations = [
+      LatLng(15.0827, 83.2707),  // Example disaster location 1
+      LatLng(13.0674, 80.2370),  // Example disaster location 2
+      LatLng(13.0965, 80.2731),  // Example disaster location 3
+    ];
+
     LatLng location;
     switch (selectedChipIndex) {
       case 0:
-        location = LatLng(13.0827, 80.2707); // Chennai coordinates for 'Camps'
+        location = disasterLocations[0];
         break;
       case 1:
-        location = LatLng(13.0674, 80.2370); // Chennai coordinates for 'Safe Places'
+        location = disasterLocations[1];
         break;
       case 2:
-        location = LatLng(13.0965, 80.2731); // Chennai coordinates for 'Medical'
+        location = disasterLocations[2];
         break;
       case 3:
-        location = LatLng(13.0878, 80.2745); // Chennai coordinates for 'Food Supplies'
+        location = disasterLocations[0];
         break;
       default:
-        location = LatLng(13.0827, 80.2707); // Default to Chennai
+        location = disasterLocations[0];
         break;
     }
-    moveCameraToLocation(currentLocation!);
-    // final GoogleMapController controller = await _controller.future;
-    // final newCameraPosition = CameraPosition(
-    //   target: location,
-    //   zoom: 14.0,
-    // );
-    // controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
+
+    final GoogleMapController controller = await _controller.future;
+    final newCameraPosition = CameraPosition(
+      target: location,
+      zoom: 18.0,
+    );
+    controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
   }
 }

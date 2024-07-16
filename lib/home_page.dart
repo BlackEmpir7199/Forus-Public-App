@@ -234,33 +234,10 @@ class MapSampleState extends State<MapSample> {
       LatLng(13.0965, 80.2731),  // Example disaster location 3
     ];
 
-    List<Color> disasterColors = [
-      Colors.red,     // High damage
-      Colors.orange,  // Medium damage
-      Colors.green,   // Low damage
-    ];
-
     for (int i = 0; i < disasterLocations.length; i++) {
       LatLng location = disasterLocations[i];
-      Color color = disasterColors[i];
 
-      _markers.add(Marker(
-        markerId: MarkerId('disaster_marker_$i'),
-        position: location,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        onTap: () {
-          _showDisasterInfo(location, color, 'Disaster $i');
-        },
-      ));
-
-      _circles.add(Circle(
-        circleId: CircleId('disaster_circle_$i'),
-        center: location,
-        radius: 500,
-        fillColor: color.withOpacity(0.3),
-        strokeColor: color,
-        strokeWidth: 2,
-      ));
+      _addDisasterMarker(location, 'Disaster $i');
     }
   }
 
@@ -278,7 +255,30 @@ class MapSampleState extends State<MapSample> {
     });
   }
 
-  Future<Uint8List> createCustomMarkerIcon(IconData icon, String title) async {
+  Future<void> _addDisasterMarker(LatLng position, String title) async {
+    final Uint8List markerIcon = await createCustomMarkerIcon(Icons.warning, title, Colors.red);
+    setState(() {
+      _markers.add(Marker(
+        markerId: MarkerId(title),
+        position: position,
+        icon: BitmapDescriptor.fromBytes(markerIcon),
+        onTap: () {
+          _showDisasterInfo(position, title);
+        },
+      ));
+
+      _circles.add(Circle(
+        circleId: CircleId(title),
+        center: position,
+        radius: 500,
+        fillColor: Colors.red.withOpacity(0.3),
+        strokeColor: Colors.red,
+        strokeWidth: 2,
+      ));
+    });
+  }
+
+  Future<Uint8List> createCustomMarkerIcon(IconData icon, String title, [Color color = Colors.lightBlue]) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     final double size = 100.0;
@@ -290,7 +290,7 @@ class MapSampleState extends State<MapSample> {
     canvas.clipRRect(rrect);
 
     // Draw background
-    paint.color = Colors.lightBlue.withOpacity(0.8);
+    paint.color = color.withOpacity(0.8);
     canvas.drawRRect(rrect, paint);
 
     // Draw icon
@@ -369,7 +369,7 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  void _showDisasterInfo(LatLng position, Color color, String title) {
+  void _showDisasterInfo(LatLng position, String title) {
     showDialog(
       context: context,
       builder: (context) {
@@ -384,6 +384,8 @@ class MapSampleState extends State<MapSample> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Icon(Icons.warning, color: Colors.white, size: 40),
+                SizedBox(height: 10),
                 Text(
                   title,
                   style: TextStyle(
@@ -408,7 +410,7 @@ class MapSampleState extends State<MapSample> {
                   child: Text(
                     'View More',
                     style: TextStyle(
-                      color: color,
+                      color: Colors.red,
                       fontSize: 14,
                     ),
                   ),

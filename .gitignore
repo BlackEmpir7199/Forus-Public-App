@@ -22,7 +22,7 @@ migrate_working_dir/
 #untrack AppDelegate.swift|0|
 #                         ---
 android/app/src/main/AndroidManifest.xml
-ios/Runner/AppDelegate.swift
+ios/Runner/AppDelegate.swift    
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.

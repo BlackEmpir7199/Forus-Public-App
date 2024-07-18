@@ -29,9 +29,10 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
-            child: MapSample(selectedChipIndex: selectedChipIndex),
-          ),
+          // Remove comment for Maps [Not so rich:((]
+          // Positioned.fill(
+          //   child: MapSample(selectedChipIndex: selectedChipIndex),
+          // ),
           Column(
             children: [
               Container(

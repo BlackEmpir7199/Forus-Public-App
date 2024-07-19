@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Forus',
       theme: ThemeData(
-        primarySwatch: Colors.amber,
+        primarySwatch: Colors.lightBlue,
       ),
       home: MyHomePage(),
     );
@@ -37,9 +37,9 @@ class _MyHomePageState extends State<MyHomePage> {
   static List<Widget> _pages = <Widget>[
     HomePage(),
     DonationPage(),
-    ProfilePage(),
     WeatherPage(),
     InventoryPage(),
+    ProfilePage(),
     CampPage(),
   ];
 
@@ -64,10 +64,6 @@ class _MyHomePageState extends State<MyHomePage> {
             label: 'Donate',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.wb_sunny),
             label: 'Weather',
           ),
@@ -81,8 +77,9 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.amber[900],
+        backgroundColor: Colors.white,
         unselectedItemColor: Colors.black,
+        selectedItemColor: Colors.lightBlueAccent,
         onTap: _onItemTapped, // Change the background color to black
       ),
     );

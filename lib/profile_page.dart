@@ -23,6 +23,7 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(
         title: Text('Profile Settings',style: TextStyle(color:Colors.white),),
         backgroundColor: Colors.black,
+        leading: IconButton(icon:Icon(Icons.arrow_back),color: Colors.white,onPressed: (){Navigator.pop(context);},),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -30,7 +31,7 @@ class ProfilePage extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 50,
-              backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+              backgroundImage: AssetImage('assets/profile_image.jpg'),
             ),
             SizedBox(height: 20),
             Text(

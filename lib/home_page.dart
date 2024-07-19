@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 
@@ -24,15 +23,16 @@ class _HomePageState extends State<HomePage> {
   final List<String> chipLabels = ['Camps', 'Safe Places', 'Medical', 'Food Supplies'];
   final List<IconData> chipIcons = [Icons.campaign, Icons.shield, Icons.local_hospital, Icons.fastfood];
 
+  final GlobalKey<MapSampleState> _mapSampleKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Remove comment for Maps [Not so rich:((]
-          // Positioned.fill(
-          //   child: MapSample(selectedChipIndex: selectedChipIndex),
-          // ),
+          Positioned.fill(
+            child: MapSample(key: _mapSampleKey, selectedChipIndex: selectedChipIndex),
+          ),
           Column(
             children: [
               Container(
@@ -67,9 +67,17 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     SizedBox(width: 16),
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: AssetImage('assets/profile_image.jpg'),
+                    GestureDetector(
+                      onTap: () {
+                        final mapSampleState = _mapSampleKey.currentState;
+                        if (mapSampleState != null) {
+                          mapSampleState.zoomToUserLocation();
+                        }
+                      },
+                      child: CircleAvatar(
+                        radius: 20,
+                        foregroundImage: AssetImage('assets/profile_image.jpg'),
+                      ),
                     ),
                   ],
                 ),
@@ -99,6 +107,19 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton(
+              onPressed: () {
+                final mapSampleState = _mapSampleKey.currentState;
+                if (mapSampleState != null) {
+                  mapSampleState.zoomToUserLocation();
+                }
+              },
+              child: Icon(Icons.my_location),
+            ),
+          ),
         ],
       ),
     );
@@ -119,8 +140,6 @@ class _HomePageState extends State<HomePage> {
     );
     controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
   }
-
-  final GlobalKey<MapSampleState> _mapSampleKey = GlobalKey();
 }
 
 class MapSample extends StatefulWidget {
@@ -150,8 +169,7 @@ class MapSampleState extends State<MapSample> {
     super.initState();
     _getCurrentLocation();
     _loadMarkerIcons();
-    _generateRandomDisasterMarkers();
-    _generateRandomNearbyMarkers();
+    _fetchDisasterData();
   }
 
   Future<void> _loadMarkerIcons() async {
@@ -187,6 +205,7 @@ class MapSampleState extends State<MapSample> {
       if (mounted) {
         setState(() {
           moveCameraToLocation(currentLocation!);
+          _addUserMarker(currentLocation!);
         });
       }
     } catch (e) {
@@ -194,92 +213,91 @@ class MapSampleState extends State<MapSample> {
     }
   }
 
-  void _generateRandomNearbyMarkers() {
-    List<LatLng> disasterLocations = [
-      LatLng(15.0827, 83.2707),  // Example disaster location 1
-      LatLng(13.0674, 80.2370),  // Example disaster location 2
-      LatLng(13.0965, 80.2731),  // Example disaster location 3
-    ];
+Future<void> _fetchDisasterData() async {
+  try {
+    final response = await http.get(Uri.parse('https://sachet.ndma.gov.in/cap_public_website/FetchAllAlertDetails'));
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      for (var disaster in data) {
+        if (disaster['disseminated'] == 'true') { 
+          LatLng location = LatLng(
+            double.parse(disaster['centroid'].split(',')[1]),
+            double.parse(disaster['centroid'].split(',')[0]),
+          );
+          String severity = disaster['severity'];
+          String disasterType = disaster['disaster_type'];
+          Color color = _getColorFromSeverityColor(disaster['severity_color']);
 
-    List<IconData> campIcons = [
-      Icons.campaign,         // Camps
-      Icons.shield,           // Safe Places
-      Icons.local_hospital,   // Medical
-      Icons.fastfood,         // Food Supplies
-    ];
-
-    for (int i = 0; i < disasterLocations.length; i++) {
-      LatLng disasterLocation = disasterLocations[i];
-
-      // Generate random offsets for camp locations
-      double latOffset = Random().nextDouble() * 0.02 - 0.01; // Example latitude offset (-0.01 to +0.01)
-      double lngOffset = Random().nextDouble() * 0.02 - 0.01; // Example longitude offset (-0.01 to +0.01)
-
-      // Generate camp locations near the disaster location
-      for (int j = 0; j < campIcons.length; j++) {
-        LatLng campLocation = LatLng(
-          disasterLocation.latitude + latOffset,
-          disasterLocation.longitude + lngOffset,
-        );
-
-        IconData icon = campIcons[j];
-        _addCustomMarker(campLocation, icon, 'Location ${i}_${j}');
+          _addDisasterMarker(location, disasterType, color, disaster);
+        }
       }
+    } else {
+      print('Failed to load disaster data. Status code: ${response.statusCode}');
     }
+  } catch (e) {
+    print('Error fetching disaster data: $e');
   }
+}
 
-  void _generateRandomDisasterMarkers() {
-    List<LatLng> disasterLocations = [
-      LatLng(15.0827, 83.2707),  // Example disaster location 1
-      LatLng(13.0674, 80.2370),  // Example disaster location 2
-      LatLng(13.0965, 80.2731),  // Example disaster location 3
-    ];
-
-    for (int i = 0; i < disasterLocations.length; i++) {
-      LatLng location = disasterLocations[i];
-
-      _addDisasterMarker(location, 'Disaster $i');
-    }
+Color _getColorFromSeverityColor(String severityColor) {
+  switch (severityColor.toLowerCase()) {
+    case 'red':
+      return Colors.red;
+    case 'orange':
+      return Colors.orange;
+    case 'yellow':
+      return Colors.yellow;
+    case 'green':
+      return Colors.green;
+    default:
+      return Colors.grey; 
   }
+}
 
-  Future<void> _addCustomMarker(LatLng position, IconData icon, String title) async {
-    final Uint8List markerIcon = await createCustomMarkerIcon(icon, title);
+Future<void> _addDisasterMarker(LatLng position, String disasterType, Color color, Map<String, dynamic> disasterData) async {
+  final Uint8List markerIcon = await createCustomMarkerIcon(Icons.warning, disasterType, color);
+  setState(() {
+    _markers.add(Marker(
+      markerId: MarkerId(disasterData['identifier'].toString()),
+      position: position,
+      icon: BitmapDescriptor.fromBytes(markerIcon),
+      onTap: () {
+        _showDisasterInfo(position, disasterData);
+      },
+    ));
+
+    _circles.add(Circle(
+      circleId: CircleId(disasterData['identifier'].toString()),
+      center: position,
+      radius: 500,
+      fillColor: color.withOpacity(0.3),
+      strokeColor: color,
+      strokeWidth: 2,
+    ));
+  });
+}
+
+  Future<void> _addUserMarker(LocationData location) async {
+    final Uint8List markerIcon = await createCustomMarkerIcon(Icons.my_location, 'You', Colors.blue);
     setState(() {
       _markers.add(Marker(
-        markerId: MarkerId(title),
-        position: position,
+        markerId: MarkerId('userLocation'),
+        position: LatLng(location.latitude!, location.longitude!),
         icon: BitmapDescriptor.fromBytes(markerIcon),
-        onTap: () {
-          _showCampInfo(position, icon, title);
-        },
-      ));
-    });
-  }
-
-  Future<void> _addDisasterMarker(LatLng position, String title) async {
-    final Uint8List markerIcon = await createCustomMarkerIcon(Icons.warning, title, Colors.red);
-    setState(() {
-      _markers.add(Marker(
-        markerId: MarkerId(title),
-        position: position,
-        icon: BitmapDescriptor.fromBytes(markerIcon),
-        onTap: () {
-          _showDisasterInfo(position, title);
-        },
       ));
 
       _circles.add(Circle(
-        circleId: CircleId(title),
-        center: position,
-        radius: 500,
-        fillColor: Colors.red.withOpacity(0.3),
-        strokeColor: Colors.red,
+        circleId: CircleId('userLocation'),
+        center: LatLng(location.latitude!, location.longitude!),
+        radius: 30,
+        fillColor: Colors.blue.withOpacity(0.3),
+        strokeColor: Colors.blue,
         strokeWidth: 2,
       ));
     });
   }
 
-  Future<Uint8List> createCustomMarkerIcon(IconData icon, String title, [Color color = Colors.lightBlue]) async {
+  Future<Uint8List> createCustomMarkerIcon(IconData icon, String title, Color color) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     final double size = 100.0;
@@ -316,211 +334,130 @@ class MapSampleState extends State<MapSample> {
     return byteData!.buffer.asUint8List();
   }
 
-  void _showCampInfo(LatLng position, IconData icon, String title) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          content: Container(
-            width: 150,
-            height: 180,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: Colors.white, size: 40),
-                SizedBox(height: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+void _showDisasterInfo(LatLng position, Map<String, dynamic> disasterData) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: Colors.black.withOpacity(0.8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        content: Container(
+          width: 350,
+          height: 480,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning, color: _getColorFromSeverityColor(disasterData['severity_color']), size: 40),
+              SizedBox(height: 10),
+              Text(
+                disasterData['disaster_type'],
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                SizedBox(height: 10),
-                Text(
-                  'Description of the location...',
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Area: ${disasterData['area_description']}',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+                maxLines: 3,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Severity Level: ${disasterData['severity_level']}',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Warning Message: ${disasterData['warning_message']}',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+                maxLines: 6,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Start Time: ${disasterData['effective_start_time']}',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'End Time: ${disasterData['effective_end_time']}',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              Spacer(),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'OK',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color:_getColorFromSeverityColor(disasterData['severity_color']),
                     fontSize: 14,
                   ),
                 ),
-                Spacer(),
-                TextButton(
-                  onPressed: () {
-                    // Handle view more action
-                  },
-                  child: Text(
-                    'View More',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      );
+    },
+  );
+}
+void moveCameraToLocation(LocationData locationData) async {
+    final GoogleMapController mapController = await _controller.future;
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(locationData.latitude!, locationData.longitude!),
+          zoom: 15.0,
+        ),
+      ),
     );
   }
 
-  void _showDisasterInfo(LatLng position, String title) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+  void zoomToUserLocation() async {
+    if (currentLocation != null) {
+      final GoogleMapController mapController = await _controller.future;
+      mapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(currentLocation!.latitude!, currentLocation!.longitude!),
+            zoom: 18.0,
           ),
-          content: Container(
-            width: 150,
-            height: 180,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.warning, color: Colors.white, size: 40),
-                SizedBox(height: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Description of the disaster...',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                Spacer(),
-                TextButton(
-                  onPressed: () {
-                    // Handle view more action
-                  },
-                  child: Text(
-                    'View More',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GoogleMap(
-          zoomControlsEnabled: false,
-          mapType: MapType.normal,
-          initialCameraPosition: _kGooglePlex,
-          onMapCreated: (GoogleMapController controller) {
-            _controller.complete(controller);
-          },
-          markers: Set.from(_markers),
-          circles: Set.from(_circles),
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-        ),
-        if (currentLocation != null && userMarkerIcon != null)
-          Positioned(
-            bottom: 50,
-            right: 16,
-            child: GestureDetector(
-              onTap: moveToUserLocation,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.8),
-                      spreadRadius: 2,
-                      blurRadius: 3,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundImage: AssetImage('assets/profile_image.jpg'),
-                ),
-              ),
-            ),
-          ),
-      ],
+    return GoogleMap(
+      mapType: MapType.normal,
+      initialCameraPosition: _kGooglePlex,
+      zoomControlsEnabled: false,
+      markers: Set<Marker>.of(_markers),
+      circles: Set<Circle>.of(_circles),
+      onMapCreated: (GoogleMapController controller) {
+        _controller.complete(controller);
+      },
     );
-  }
-
-  void moveCameraToLocation(LocationData location) async {
-    final GoogleMapController controller = await _controller.future;
-    final newCameraPosition = CameraPosition(
-      target: LatLng(location.latitude!, location.longitude!),
-      zoom: 18.0,
-    );
-    controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
-  }
-
-  void moveToUserLocation() async {
-    if (currentLocation != null) {
-      final GoogleMapController controller = await _controller.future;
-      final newCameraPosition = CameraPosition(
-        target: LatLng(currentLocation!.latitude!, currentLocation!.longitude!),
-        zoom: 18.0,
-      );
-      controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
-    }
-  }
-
-  void findNearbyLocations(int selectedChipIndex) async {
-    List<LatLng> disasterLocations = [
-      LatLng(15.0827, 83.2707),  // Example disaster location 1
-      LatLng(13.0674, 80.2370),  // Example disaster location 2
-      LatLng(13.0965, 80.2731),  // Example disaster location 3
-    ];
-
-    LatLng location;
-    switch (selectedChipIndex) {
-      case 0:
-        location = disasterLocations[0];
-        break;
-      case 1:
-        location = disasterLocations[1];
-        break;
-      case 2:
-        location = disasterLocations[2];
-        break;
-      case 3:
-        location = disasterLocations[0];
-        break;
-      default:
-        location = disasterLocations[0];
-        break;
-    }
-
-    final GoogleMapController controller = await _controller.future;
-    final newCameraPosition = CameraPosition(
-      target: location,
-      zoom: 18.0,
-    );
-    controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
   }
 }

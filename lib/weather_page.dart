@@ -27,7 +27,7 @@ class _WeatherPageState extends State<WeatherPage> {
       LocationData locationData = await _determinePosition();
       final lat = locationData.latitude;
       final lon = locationData.longitude;
-      final url = 'https://api.brightsky.dev/current_weather?lat=$lat&lon=$lon';
+      final url = 'https://api.brightsky.dev/current_weather';
 
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

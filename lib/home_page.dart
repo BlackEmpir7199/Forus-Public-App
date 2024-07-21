@@ -259,7 +259,15 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _addDisasterMarker(LatLng position, String disasterType, Color color, Map<String, dynamic> disasterData) async {
-    final Uint8List markerIcon = await createCustomMarkerIcon(Icons.warning, disasterType, color);
+    final Uint8List markerIcon;
+    if(disasterData['disaster_type'].toString().contains('Rain')){
+    markerIcon = await createCustomMarkerIcon(Icons.cloudy_snowing, disasterType, color);}
+    else if(disasterData['disaster_type'].toString().contains('Flood')){
+     markerIcon = await createCustomMarkerIcon(Icons.flood, disasterType, color);
+    }
+    else{
+      markerIcon = await createCustomMarkerIcon(Icons.warning, disasterType, color);
+    }
     setState(() {
       _markers.add(Marker(
         markerId: MarkerId(disasterData['identifier'].toString()),
@@ -353,7 +361,7 @@ class MapSampleState extends State<MapSample> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning, color: _getColorFromSeverityColor(disasterData['severity_color']), size: 40),
+                Icon(Icons.warning_outlined, color: _getColorFromSeverityColor(disasterData['severity_color']), size: 40),
                 SizedBox(height: 10),
                 Text(
                   disasterData['disaster_type'],

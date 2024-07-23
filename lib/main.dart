@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:foruspublic/bluetooth_page.dart';
-import 'package:foruspublic/sms_page.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'background_service.dart';
+import 'signup_screen.dart';
 import 'home_page.dart';
-import 'donation_page.dart';
-import 'profile_page.dart';
-import 'weather_page.dart';
-import 'inventory_page.dart';
-import 'camp_page.dart';
+import 'donation_home_page.dart';
 
-void main() {
+
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MyApp());
 }
 
@@ -23,8 +24,24 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.lightBlue,
       ),
-      home: MyHomePage(),
+      home: FutureBuilder(
+        future: _checkLoginStatus(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.data == true) {
+            return MyHomePage();
+          } else {
+            return SignUpScreen();
+          }
+        },
+      ),
     );
+  }
+
+  Future<bool> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isLoggedIn') ?? false;
   }
 }
 
@@ -35,15 +52,11 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
-  final id = 101;
-  final username = "Rakhul";
+
   static List<Widget> _pages = <Widget>[
     HomePage(),
-    DonationPage(),
-    WeatherPage(),
-    InventoryPage(),
-    CampPage(),
-    ReadSmsScreen(),
+    DonationHomePage(),
+
   ];
 
   void _onItemTapped(int index) {
@@ -68,30 +81,13 @@ class _MyHomePageState extends State<MyHomePage> {
             activeIcon: Icon(Icons.handshake),
             label: 'Donate',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.wb_sunny_outlined),
-            activeIcon: Icon(Icons.wb_sunny),
-            label: 'Weather',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory),
-            label: 'Inventory',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.campaign_outlined),
-            label: 'Camp',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bluetooth),
-            label: 'BLE',
-          ),
+
         ],
         currentIndex: _selectedIndex,
         backgroundColor: Colors.white,
         unselectedItemColor: Colors.black,
         selectedItemColor: Colors.lightBlueAccent,
-        onTap: _onItemTapped, // Change the background color to black
+        onTap: _onItemTapped,
       ),
     );
   }

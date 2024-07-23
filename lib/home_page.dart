@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -86,7 +87,7 @@ class _HomePageState extends State<HomePage> {
                         foregroundImage: AssetImage('assets/profile_image.jpg'),
                       ),
                     ),
-                                      ],
+                  ],
                 ),
               ),
               SizedBox(height: 10),
@@ -115,7 +116,27 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           Positioned(
-            bottom: 16,
+            bottom: 140,
+            right: 16,
+            child: FloatingActionButton(
+              backgroundColor: Colors.black,
+              onPressed: () {
+                _mapSampleKey.currentState?.zoomOutToShowIndia();             },
+              child: Icon(Icons.zoom_out_map, color: Colors.amberAccent),
+            ),
+          ),
+          Positioned(
+            bottom: 80,
+            right: 16,
+            child: FloatingActionButton(
+              backgroundColor: Colors.black,
+              onPressed: () {
+              },
+              child: Icon(Icons.sos, color: Colors.redAccent),
+            ),
+          ),
+          Positioned(
+            bottom: 20,
             right: 16,
             child: FloatingActionButton(
               backgroundColor: Colors.black,
@@ -177,6 +198,8 @@ class MapSampleState extends State<MapSample> {
     zoom: 15.0,
   );
 
+  Map<String, dynamic> memoryCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -227,12 +250,34 @@ class MapSampleState extends State<MapSample> {
   }
 
   Future<void> _fetchDisasterData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedData = prefs.getString('disasterData');
+
+    if (memoryCache.containsKey('disasterData')) {
+      setState(() {
+        disasterData = memoryCache['disasterData'];
+        _updateMarkers();
+      });
+      return;
+    }
+
+    if (cachedData != null) {
+      setState(() {
+        disasterData = json.decode(cachedData);
+        memoryCache['disasterData'] = disasterData;
+        _updateMarkers();
+      });
+      return;
+    }
+
     try {
       final response = await http.get(Uri.parse('https://sachet.ndma.gov.in/cap_public_website/FetchAllAlertDetails'));
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
         setState(() {
           disasterData = data;
+          memoryCache['disasterData'] = data;
+          prefs.setString('disasterData', response.body);
         });
         _updateMarkers();
       } else {
@@ -254,18 +299,17 @@ class MapSampleState extends State<MapSample> {
       case 'green':
         return Colors.green;
       default:
-        return Colors.grey; 
+        return Colors.grey;
     }
   }
 
   Future<void> _addDisasterMarker(LatLng position, String disasterType, Color color, Map<String, dynamic> disasterData) async {
     final Uint8List markerIcon;
-    if(disasterData['disaster_type'].toString().contains('Rain')){
-    markerIcon = await createCustomMarkerIcon(Icons.cloudy_snowing, disasterType, color);}
-    else if(disasterData['disaster_type'].toString().contains('Flood')){
-     markerIcon = await createCustomMarkerIcon(Icons.flood, disasterType, color);
-    }
-    else{
+    if (disasterData['disaster_type'].toString().contains('Rain')) {
+      markerIcon = await createCustomMarkerIcon(Icons.cloudy_snowing, disasterType, color);
+    } else if (disasterData['disaster_type'].toString().contains('Flood')) {
+      markerIcon = await createCustomMarkerIcon(Icons.flood, disasterType, color);
+    } else {
       markerIcon = await createCustomMarkerIcon(Icons.warning, disasterType, color);
     }
     setState(() {
@@ -442,6 +486,19 @@ class MapSampleState extends State<MapSample> {
           target: LatLng(locationData.latitude!, locationData.longitude!),
           zoom: 15.0,
         ),
+      ),
+    );
+  }
+
+  Future<void> zoomOutToShowIndia() async {
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(6.4626999, 68.1097),
+          northeast: LatLng(35.513327, 97.39535869999999),
+        ),
+        50.0,
       ),
     );
   }

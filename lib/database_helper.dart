@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-
+import 'user.dart';
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'requests.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute(
           'CREATE TABLE requests('
@@ -31,6 +31,11 @@ class DatabaseHelper {
           'timestamp TEXT, '
           'type TEXT)',
         );
+        await db.execute(
+          'CREATE TABLE users('
+          'username TEXT PRIMARY KEY, '
+          'password TEXT)',
+        );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -38,9 +43,50 @@ class DatabaseHelper {
             'ALTER TABLE requests ADD COLUMN type TEXT',
           );
         }
+        if (oldVersion < 3) {
+          await db.execute(
+            'CREATE TABLE users('
+            'username TEXT PRIMARY KEY, '
+            'password TEXT)',
+          );
+        }
       },
     );
   }
+
+  Future<void> insertUser(User user) async {
+    final db = await database;
+    await db.insert(
+      'users',
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<Map<String, dynamic>?> getUser(String username) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'username = ?',
+      whereArgs: [username],
+    );
+
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
+
+  Future<void> deleteUser(String username) async {
+    final db = await database;
+    await db.delete(
+      'users',
+      where: 'username = ?',
+      whereArgs: [username],
+    );
+  }
+
+  // Your other methods...
 
   Future<void> insertRequest(Map<String, dynamic> request) async {
     final db = await database;
@@ -51,7 +97,7 @@ class DatabaseHelper {
     );
   }
 
-   Future<void> deleteAllRequests() async {
+  Future<void> deleteAllRequests() async {
     final db = await database;
     await db.delete('requests');
   }

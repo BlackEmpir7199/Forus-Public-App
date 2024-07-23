@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class DonationPage extends StatefulWidget {
   @override
@@ -46,36 +48,41 @@ class _DonationPageState extends State<DonationPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadDonationRequests();
+  }
+
+  Future<void> _loadDonationRequests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? donationRequestsString = prefs.getString('donationRequests');
+    if (donationRequestsString != null) {
+      setState(() {
+        donationRequests = List<Map<String, dynamic>>.from(json.decode(donationRequestsString));
+      });
+    }
+  }
+
+  Future<void> _saveDonationRequests() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('donationRequests', json.encode(donationRequests));
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Donation', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-      ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(15.0),
+          padding: const EdgeInsets.all(14.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Donate',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.black),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildDonationCategory('Food', Icons.fastfood),
-                  _buildDonationCategory('Clothing', Icons.checkroom),
-                  _buildDonationCategory('Snacks', Icons.local_cafe),
-                ],
-              ),
-              SizedBox(height: 20),
               Center(
                 child: MaterialButton(
                   color: Colors.black,
-                  onPressed: () => {},
+                  onPressed: () {
+                    _showMoneyDonationPopup(context);
+                  },
                   minWidth: 200,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -90,7 +97,7 @@ class _DonationPageState extends State<DonationPage> {
                   ),
                 ),
               ),
-              SizedBox(height: 30),
+              SizedBox(height: 10),
               Text(
                 'Inventory Requests',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.black),
@@ -101,24 +108,6 @@ class _DonationPageState extends State<DonationPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDonationCategory(String title, IconData icon) {
-    return Column(
-      children: [
-        CircleAvatar(
-          backgroundColor: Colors.black,
-          radius: 28,
-          child: Icon(
-            icon,
-            size: 28,
-            color: Colors.white,
-          ),
-        ),
-        SizedBox(height: 5),
-        Text(title),
-      ],
     );
   }
 
@@ -180,18 +169,6 @@ class _DonationPageState extends State<DonationPage> {
               ),
             ],
           ),
-          // SizedBox(height: 15),
-          // Text(request['description']),
-          // SizedBox(height: 10),
-          // ListView.builder(
-          //   physics: NeverScrollableScrollPhysics(),
-          //   shrinkWrap: true,
-          //   itemCount: request['requestedItems'].length,
-          //   itemBuilder: (context, itemIndex) {
-          //     final item = request['requestedItems'][itemIndex];
-          //     return _buildRequestedItemTile(item);
-          //   },
-          // ),
           Align(
             alignment: Alignment.bottomRight,
             child: ElevatedButton(
@@ -219,6 +196,7 @@ class _DonationPageState extends State<DonationPage> {
             onPressed: () {
               setState(() {
                 if (item['donatedQty'] > 0) item['donatedQty']--;
+                _saveDonationRequests();
               });
             },
           ),
@@ -228,6 +206,7 @@ class _DonationPageState extends State<DonationPage> {
             onPressed: () {
               setState(() {
                 item['donatedQty']++;
+                _saveDonationRequests();
               });
             },
           ),
@@ -237,79 +216,79 @@ class _DonationPageState extends State<DonationPage> {
   }
 
   void _showDonationPopup(BuildContext context, Map<String, dynamic> request) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Confirm Donation to ${request['name']}'),
-        content: SingleChildScrollView(
-          child: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return ListBody(
-                children: [
-                  Text(request['description']),
-                  SizedBox(height: 10),
-                  ListView.builder(
-                    physics: NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: request['requestedItems'].length,
-                    itemBuilder: (context, itemIndex) {
-                      final item = request['requestedItems'][itemIndex];
-                      return ListTile(
-                        title: Text(item['item']),
-                        subtitle: Text('Requested: ${item['requestedQty']}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.remove),
-                              onPressed: () {
-                                setState(() {
-                                  if (item['donatedQty'] > 0) item['donatedQty']--;
-                                });
-                              },
-                            ),
-                            Text('${item['donatedQty']}'),
-                            IconButton(
-                              icon: Icon(Icons.add),
-                              onPressed: () {
-                                setState(() {
-                                  item['donatedQty']++;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-                    onPressed: () {
-                      // Logic to handle goods donation
-                      Navigator.of(context).pop();
-                    },
-                    child: Text('Confirm Donation', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              );
-            },
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Donation to ${request['name']}'),
+          content: SingleChildScrollView(
+            child: StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                return ListBody(
+                  children: [
+                    Text(request['description']),
+                    SizedBox(height: 10),
+                    ListView.builder(
+                      physics: NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: request['requestedItems'].length,
+                      itemBuilder: (context, itemIndex) {
+                        final item = request['requestedItems'][itemIndex];
+                        return ListTile(
+                          title: Text(item['item']),
+                          subtitle: Text('Requested: ${item['requestedQty']}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.remove),
+                                onPressed: () {
+                                  setState(() {
+                                    if (item['donatedQty'] > 0) item['donatedQty']--;
+                                  });
+                                },
+                              ),
+                              Text('${item['donatedQty']}'),
+                              IconButton(
+                                icon: Icon(Icons.add),
+                                onPressed: () {
+                                  setState(() {
+                                    item['donatedQty']++;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                      onPressed: () {
+                        // Logic to handle goods donation
+                        Navigator.of(context).pop();
+                        _saveDonationRequests();
+                      },
+                      child: Text('Confirm Donation', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: Text('Close'),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      );
-    },
-  );
-}
-
+          actions: <Widget>[
+            TextButton(
+              child: Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showMoneyDonationPopup(BuildContext context) {
     final TextEditingController amountController = TextEditingController();

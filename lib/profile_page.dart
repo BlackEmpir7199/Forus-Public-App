@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'database_helper.dart';
+import 'signup_screen.dart';
+import 'user.dart';
 
 void main() {
   runApp(MyApp());
@@ -11,19 +15,80 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Colors.black,
       ),
-      home: ProfilePage(),
+      home: FutureBuilder<bool>(
+        future: _checkIfLoggedIn(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return CircularProgressIndicator();
+          } else {
+            if (snapshot.data == true) {
+              return ProfilePage();
+            } else {
+              return SignUpScreen();
+            }
+          }
+        },
+      ),
     );
+  }
+
+  Future<bool> _checkIfLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isLoggedIn') ?? false;
   }
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
+  String? _username;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _username = prefs.getString('username');
+    });
+  }
+
+  Future<void> _deleteUser(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final username = prefs.getString('username');
+
+    if (username != null) {
+      await _databaseHelper.deleteUser(username);
+      await prefs.setBool('isLoggedIn', false);
+      await prefs.remove('username');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SignUpScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile Settings',style: TextStyle(color:Colors.white),),
+        title: Text('Profile Settings', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.black,
-        leading: IconButton(icon:Icon(Icons.arrow_back),color: Colors.white,onPressed: (){Navigator.pop(context);},),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          color: Colors.white,
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -35,14 +100,8 @@ class ProfilePage extends StatelessWidget {
             ),
             SizedBox(height: 20),
             Text(
-              'John Doe',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 10),
-            Text(
-              'johndoe@example.com',
-              style: TextStyle(fontSize: 16, color: Colors.amber[900]),
+              _username ?? 'Loading...',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 30),
@@ -82,10 +141,10 @@ class ProfilePage extends StatelessWidget {
               },
             ),
             ProfileMenuItem(
-              icon: Icons.logout,
-              text: 'Logout',
-              onTap: () {
-                // Handle logout
+              icon: Icons.delete,
+              text: 'Delete User',
+              onTap: () async {
+                await _deleteUser(context);
               },
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:telephony/telephony.dart';
 import 'database_helper.dart';
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ReadSmsScreen extends StatefulWidget {
   const ReadSmsScreen({Key? key}) : super(key: key);
@@ -14,7 +15,7 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
   final Telephony telephony = Telephony.instance;
   final List<Map<String, dynamic>> _requests = [];
   final List<Map<String, dynamic>> _sentRequests = [];
-  final String _targetNumber = '+919884752316';
+  final String _targetNumber = dotenv.env['PHONE_NUMBER']!;
 
   @override
   void initState() {
@@ -40,8 +41,8 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
       );
     }
   }
-  
-   Future<void> _clearAllRequests() async {
+
+  Future<void> _clearAllRequests() async {
     final dbHelper = DatabaseHelper();
     await dbHelper.deleteAllRequests();
     _loadRequests();
@@ -104,16 +105,16 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
       }
     });
   }
-
-  void _sendRequest(Map<String, dynamic> request) {
+  
+  void _sendRequest(Map<String, dynamic> request) async {
     final message = jsonEncode(request);
-    telephony.sendSms(
-      to: _targetNumber,
-      message: message,
-    );
-    _parseAndAddRequest(message, 'sent');
+    try {
+       await telephony.sendSms(to: _targetNumber, message: message);// Log the result for debugging
+      _parseAndAddRequest(message, 'sent');
+    } catch (e) {
+      print('Error sending SMS: $e'); // Log the exception for debugging
+    }
   }
-
   Future<void> _showSendRequestDialog() async {
     final nameController = TextEditingController();
     final goodsRequiredController = TextEditingController();
@@ -129,11 +130,21 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameController, decoration: InputDecoration(labelText: 'Name')),
-              TextField(controller: goodsRequiredController, decoration: InputDecoration(labelText: 'Goods Required')),
-              TextField(controller: quantityController, decoration: InputDecoration(labelText: 'Quantity')),
-              TextField(controller: addressController, decoration: InputDecoration(labelText: 'Address')),
-              TextField(controller: phoneController, decoration: InputDecoration(labelText: 'Phone Number')),
+              TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Name')),
+              TextField(
+                  controller: goodsRequiredController,
+                  decoration: InputDecoration(labelText: 'Goods Required')),
+              TextField(
+                  controller: quantityController,
+                  decoration: InputDecoration(labelText: 'Quantity')),
+              TextField(
+                  controller: addressController,
+                  decoration: InputDecoration(labelText: 'Address')),
+              TextField(
+                  controller: phoneController,
+                  decoration: InputDecoration(labelText: 'Phone Number')),
             ],
           ),
           actions: [
@@ -146,6 +157,7 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
             ElevatedButton(
               onPressed: () {
                 final request = {
+                  'id': '${phoneController.text}_${DateTime.now().millisecondsSinceEpoch}',
                   'name': nameController.text,
                   'goods_required': goodsRequiredController.text,
                   'quantity': quantityController.text,
@@ -163,23 +175,26 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('People Requests'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.send),
-            onPressed: _showSendRequestDialog,
-          ),
-        ],
-      ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Text('People Requests', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('People Requests',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(
+                    onPressed: _clearAllReceivedRequests,
+                    icon: Icon(Icons.delete),
+                    color: Colors.red)
+              ],
+            ),
           ),
           Expanded(
             child: _requests.isEmpty
@@ -191,18 +206,21 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
                       return Card(
                         margin: EdgeInsets.all(8),
                         child: ListTile(
-                          title: Text(request['name'], style: TextStyle(fontWeight: FontWeight.w800)),
+                          title: Text(request['name'],
+                              style: TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text(
                             '${request['goods_required']} (${request['quantity']})\nAddress: ${request['address']}\nPhone: ${request['phone_no']}',
                             style: TextStyle(color: Colors.black),
                           ),
                           isThreeLine: true,
                           trailing: ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black),
                             onPressed: () {
                               // Implement donate action
                             },
-                            child: Text('Donate', style: TextStyle(color: Colors.white)),
+                            child: Text('Donate',
+                                style: TextStyle(color: Colors.white)),
                           ),
                         ),
                       );
@@ -212,7 +230,31 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
           Divider(),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Text('Your Requests', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Your Requests',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    MaterialButton(
+                      onPressed: _showSendRequestDialog,
+                      child: Text(
+                        'Request',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      color: Colors.black,
+                    ),
+                    IconButton(
+                      onPressed: _clearAllSentRequests,
+                      icon: Icon(Icons.delete),
+                      color: Colors.red,
+                    )
+                  ],
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: _sentRequests.isEmpty
@@ -224,7 +266,8 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
                       return Card(
                         margin: EdgeInsets.all(8),
                         child: ListTile(
-                          title: Text(request['name'], style: TextStyle(fontWeight: FontWeight.w800)),
+                          title: Text(request['name'],
+                              style: TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text(
                             '${request['goods_required']} (${request['quantity']})\nAddress: ${request['address']}\nPhone: ${request['phone_no']}',
                             style: TextStyle(color: Colors.black),
@@ -234,23 +277,27 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green),
                                 onPressed: () {
                                   final dbHelper = DatabaseHelper();
                                   dbHelper.deleteRequest(request['id']);
                                   _loadRequests();
                                 },
-                                child: Text('Satisfied', style: TextStyle(color: Colors.white)),
+                                child: Text('Satisfied',
+                                    style: TextStyle(color: Colors.white)),
                               ),
                               SizedBox(width: 8),
                               ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red),
                                 onPressed: () {
                                   final dbHelper = DatabaseHelper();
                                   dbHelper.deleteRequest(request['id']);
                                   _loadRequests();
                                 },
-                                child: Text('Delete', style: TextStyle(color: Colors.white)),
+                                child: Text('Delete',
+                                    style: TextStyle(color: Colors.white)),
                               ),
                             ],
                           ),
@@ -258,23 +305,6 @@ class _ReadSmsScreenState extends State<ReadSmsScreen> {
                       );
                     },
                   ),
-          ),
-          Divider(),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: _clearAllReceivedRequests,
-                  child: Text('Clear All Received'),
-                ),
-                ElevatedButton(
-                  onPressed: _clearAllSentRequests,
-                  child: Text('Clear All Sent'),
-                )
-              ],
-            ),
           ),
         ],
       ),

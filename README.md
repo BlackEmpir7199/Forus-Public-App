@@ -19,7 +19,7 @@ The **Public App** is a key component of the **FORUS (Focused Operational Resear
 
 | **Home Screen** | **Request Supplies** |
 |:---------------:|:---------------------:|
-| ![Home Screen](link-to-home-screen-image.png) | ![Request Supplies](link-to-request-supplies-image.png) |
+| ![image](https://github.com/user-attachments/assets/105e59c0-382d-4231-b6ea-40c9775c4061) | ![Request Supplies](link-to-request-supplies-image.png) |
 
 | **Donation Page** | **Profile Page** |
 |:-----------------:|:-----------------:|

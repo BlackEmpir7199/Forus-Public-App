@@ -23,7 +23,8 @@ The **Public App** is a key component of the **FORUS (Focused Operational Resear
 
 | **Donation Page** | **Profile Page** |
 |:-----------------:|:-----------------:|
-| ![Donation Page](link-to-donation-page-image.png) | ![Profile Page](link-to-profile-page-image.png) |
+| ![Donation Page](link-to-donation-page-image.png) | ![image](https://github.com/user-attachments/assets/fb69490a-cf1e-474d-8ea7-47b06c428d1b) |
+ 
 
 ## 🚀 Getting Started
 

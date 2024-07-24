@@ -1,7 +1,6 @@
+![image](https://github.com/user-attachments/assets/c3c28e58-bbf4-4791-93e6-e79b605f7b91)
+
 # 🌍 Public App
-
-![Logo](link-to-your-app-logo.png)
-
 ## Overview
 
 The **Public App** is a key component of the **FORUS (Focused Operational Research and Unified Systems)** designed to enhance community support and disaster management. This Flutter application facilitates person-to-person communication via SMS, enabling users to request supplies from friends nearby and donate to the FORUS inventory management system. The app integrates with an open-source API to display real-time information on calamities and supports a store-and-forward approach using SQLite for offline functionality.
@@ -88,11 +87,7 @@ We welcome contributions! To get involved, follow these steps:
    ```
 5. **Open a Pull Request**
 
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
 ## 📬 Contact
 
-- **Project Repository**: [GitHub](https://github.com/your-username/public-app)
-- **Email**: [your-email@example.com](mailto:your-email@example.com)
+- **Project Repository**: [GitHub](https://github.com/BlackEmpir7199/FORUS)
+- **Email**: [forusindia@gmail.com](mailto:rakhul2005@gmail.com)

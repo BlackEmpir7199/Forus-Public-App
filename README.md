@@ -1,4 +1,4 @@
-# 🌍 Public App - Part of FORUS System
+# 🌍 Public App
 
 ![Logo](link-to-your-app-logo.png)
 
